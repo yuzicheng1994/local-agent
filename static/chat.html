@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain Agent Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        .header-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            min-height: 0;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message.agent {
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 60%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            font-size: 16px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.agent .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .message.user .message-avatar {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .message.agent .message-avatar {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .chat-input {
+            padding: 20px 30px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+            flex-shrink: 0;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 15px 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-field:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .send-button:hover {
+            background: #5a6fd8;
+        }
+
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 18px;
+            border: 1px solid #e0e0e0;
+            max-width: 70%;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+
+        .status-bar {
+            padding: 10px 30px;
+            background: #f8f9fa;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .loading-history {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <span>🤖 LangChain Agent Assistant</span>
+            <div class="header-buttons">
+                <button id="clearHistoryBtn" class="header-btn">清除历史</button>
+                <button id="refreshHistoryBtn" class="header-btn">刷新历史</button>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="messages">
+            <div class="loading-history" id="loadingHistory">
+                正在加载历史记录...
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <span id="status">正在初始化...</span>
+            <span>会话ID: <span id="threadId">default</span></span>
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="messageInput" class="input-field" placeholder="输入您的消息..." disabled />
+            <button id="sendButton" class="send-button" disabled>发送</button>
+        </div>
+    </div>
+
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const statusSpan = document.getElementById('status');
+        const threadIdSpan = document.getElementById('threadId');
+        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        const refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+        const loadingHistory = document.getElementById('loadingHistory');
+
+        const currentThreadId = 'default';
+        const API_BASE = 'http://localhost:8080';
+
+        // 添加消息到聊天界面
+        function addMessage(content, isUser = false, skipScroll = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'agent'}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = isUser ? '👤' : '🤖';
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = content;
+            
+            if (isUser) {
+                messageDiv.appendChild(messageContent);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(messageContent);
+            }
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            if (!skipScroll) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        // 显示打字指示器
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'message agent';
+            typingDiv.id = 'typing-indicator';
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = '🤖';
+            
+            const typingContent = document.createElement('div');
+            typingContent.className = 'typing-indicator';
+            typingContent.style.display = 'flex';
+            typingContent.innerHTML = `
+                正在思考...
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            
+            typingDiv.appendChild(avatar);
+            typingDiv.appendChild(typingContent);
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 隐藏打字指示器
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        // 加载聊天历史
+        async function loadChatHistory() {
+            try {
+                statusSpan.textContent = '正在加载历史记录...';
+                
+                const response = await fetch(`${API_BASE}/chat/history/${currentThreadId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 清除加载提示 - 使用更安全的方式
+                    const currentLoadingHistory = document.getElementById('loadingHistory');
+                    if (currentLoadingHistory) {
+                        currentLoadingHistory.remove();
+                    }
+                    
+                    if (data.history && data.history.length > 0) {
+                        // 显示历史消息
+                        data.history.forEach(msg => {
+                            if (msg.role === 'user') {
+                                addMessage(msg.content, true, true);
+                            } else if (msg.role === 'assistant') {
+                                addMessage(msg.content, false, true);
+                            }
+                        });
+                        
+                        // 滚动到底部
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        statusSpan.textContent = `就绪 (已加载${data.history.length}条历史消息)`;
+                    } else {
+                        // 显示欢迎消息
+                        addMessage('你好！我是你的智能助手，可以帮你搜索信息、爬取网页内容等。请问有什么可以帮助你的吗？', false, true);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        statusSpan.textContent = '就绪 (新会话)';
+                    }
+                } else {
+                    const currentLoadingHistory = document.getElementById('loadingHistory');
+                    if (currentLoadingHistory) {
+                        currentLoadingHistory.textContent = '加载历史记录失败';
+                    }
+                    addMessage('你好！我是你的智能助手，可以帮你搜索信息、爬取网页内容等。请问有什么可以帮助你的吗？', false, true);
+                    statusSpan.textContent = '就绪';
+                }
+            } catch (error) {
+                console.error('加载历史记录出错:', error);
+                const currentLoadingHistory = document.getElementById('loadingHistory');
+                if (currentLoadingHistory) {
+                    currentLoadingHistory.textContent = '网络错误，无法加载历史记录';
+                }
+                addMessage('你好！我是你的智能助手，可以帮你搜索信息、爬取网页内容等。请问有什么可以帮助你的吗？', false, true);
+                statusSpan.textContent = '就绪';
+            } finally {
+                // 启用输入和发送按钮
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // 清除聊天历史
+        async function clearChatHistory() {
+            if (!confirm('确定要清除所有聊天历史吗？')) {
+                return;
+            }
+            
+            try {
+                statusSpan.textContent = '正在清除历史记录...';
+                
+                const response = await fetch(`${API_BASE}/chat/history/${currentThreadId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // 清除界面上的消息
+                    messagesContainer.innerHTML = '';
+                    
+                    // 显示欢迎消息
+                    addMessage('历史记录已清除。你好！我是你的智能助手，可以帮你搜索信息、爬取网页内容等。请问有什么可以帮助你的吗？', false);
+                    statusSpan.textContent = '就绪 (历史已清除)';
+                } else {
+                    const data = await response.json();
+                    addMessage(`清除失败: ${data.detail || '未知错误'}`, false);
+                    statusSpan.textContent = '清除失败';
+                }
+            } catch (error) {
+                console.error('清除历史记录出错:', error);
+                addMessage('网络错误，无法清除历史记录', false);
+                statusSpan.textContent = '网络错误';
+            }
+        }
+
+        // 刷新聊天历史
+        async function refreshChatHistory() {
+            // 清除当前消息
+            messagesContainer.innerHTML = '<div class="loading-history" id="loadingHistory">正在刷新历史记录...</div>';
+            
+            // 重新加载
+            await loadChatHistory();
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 添加用户消息
+            addMessage(message, true);
+            messageInput.value = '';
+            
+            // 禁用发送按钮
+            sendButton.disabled = true;
+            statusSpan.textContent = '正在处理...';
+            
+            // 显示打字指示器
+            showTypingIndicator();
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        thread_id: currentThreadId
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 隐藏打字指示器
+                    hideTypingIndicator();
+                    
+                    // 添加Agent响应
+                    addMessage(data.response);
+                    
+                    statusSpan.textContent = '就绪';
+                } else {
+                    hideTypingIndicator();
+                    const errorData = await response.json();
+                    addMessage(errorData.detail || '抱歉，发生了错误，请稍后再试。');
+                    statusSpan.textContent = '错误';
+                }
+            } catch (error) {
+                hideTypingIndicator();
+                addMessage('网络错误，请检查服务器是否运行。');
+                statusSpan.textContent = '网络错误';
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        // 事件监听器
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        clearHistoryBtn.addEventListener('click', clearChatHistory);
+        refreshHistoryBtn.addEventListener('click', refreshChatHistory);
+
+        // 检查服务器状态
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    return true;
+                } else {
+                    statusSpan.textContent = '服务器错误';
+                    return false;
+                }
+            } catch (error) {
+                statusSpan.textContent = '服务器离线';
+                return false;
+            }
+        }
+
+        // 初始化
+        async function initialize() {
+            // 检查服务器状态
+            const serverOnline = await checkServerStatus();
+            if (serverOnline) {
+                // 加载聊天历史
+                await loadChatHistory();
+            } else {
+                const currentLoadingHistory = document.getElementById('loadingHistory');
+                if (currentLoadingHistory) {
+                    currentLoadingHistory.textContent = '服务器连接失败，请检查服务器是否运行';
+                }
+            }
+        }
+
+        // 页面加载完成后初始化
+        initialize();
+    </script>
+</body>
+</html> 
