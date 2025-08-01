@@ -1,0 +1,23 @@
+[project]
+name = "local-agent"
+version = "1.0.0"
+description = "LangChain Agent Web Service"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=1.0.15",
+    "duckduckgo-search>=8.1.1",
+    "fastapi>=0.116.1",
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.27",
+    "langchain-mcp-adapters>=0.1.9",
+    "langchain-openai>=0.3.28",
+    "langgraph>=0.6.1",
+    "langgraph-checkpoint-postgres>=2.0.23",
+    "langsmith>=0.4.8",
+    "psycopg-pool>=3.2.6",
+    "psycopg[binary,pool]>=3.2.9",
+    "python-dotenv>=1.1.1",
+    "unstructured[doc,docx,pdf]>=0.18.11",
+    "uvicorn>=0.35.0",
+]
