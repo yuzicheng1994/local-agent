@@ -1,0 +1,28 @@
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:17.5
+    container_name: postgresql
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  # ChromaDB
+  chroma:
+    image: chromadb/chroma:1.0.16.dev61
+    container_name: chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/.chroma/server/data
+    restart: always
+
+volumes:
+  postgres_data:
+  chroma_data:
